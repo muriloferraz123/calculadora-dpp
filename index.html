@@ -199,6 +199,23 @@
   .storage-aviso.show{display:block}
 
   footer{margin-top:22px;text-align:center;font-size:13px;color:var(--ink-soft)}
+  footer .sair{background:none;border:none;color:var(--jade);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0}
+
+  /* ---------- login ---------- */
+  #loginSecao{display:none}
+  #loginSecao.show{display:block;animation:rise .35s ease}
+  .login-intro{font-size:15px;color:var(--ink-soft);margin-bottom:20px;max-width:44ch}
+  .btn-link{
+    display:block;margin:16px auto 0;background:none;border:none;color:var(--jade);
+    font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;text-decoration:underline;
+  }
+  #carregando{
+    display:flex;align-items:center;justify-content:center;min-height:30vh;
+    color:var(--ink-soft);font-size:15px;font-weight:500;
+  }
+  #appSecao{display:none}
+  #appSecao.show{display:block}
+  .sync-status{font-size:13px;color:var(--ink-soft);margin-top:6px}
 </style>
 </head>
 <body>
@@ -208,6 +225,27 @@
     <h1>Calculadora de DPP</h1>
     <p>Informe a idade gestacional aferida e a data da aferição para obter a data provável do parto.</p>
   </header>
+
+  <div id="carregando">Conectando…</div>
+
+  <div id="loginSecao" class="card">
+    <p class="login-intro">Entre com o e-mail e a senha da calculadora. A lista de pacientes fica sincronizada entre todos os aparelhos em que você fizer login.</p>
+    <div class="field">
+      <label for="loginEmail">E-mail</label>
+      <input type="text" id="loginEmail" inputmode="email" autocapitalize="none" autocomplete="username" placeholder="seuemail@exemplo.com">
+    </div>
+    <div class="field">
+      <label for="loginSenha">Senha <span class="hint">(mínimo 6 caracteres)</span></label>
+      <input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••" style="width:100%;font-family:inherit;font-size:19px;color:var(--ink);padding:15px 16px;border:1.5px solid var(--line);border-radius:14px;background:#FBFCFD;appearance:none;-webkit-appearance:none;min-height:56px">
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="entrar()">Entrar</button>
+    </div>
+    <button class="btn-link" onclick="criarConta()">Primeiro acesso? Criar conta</button>
+    <div class="error" id="loginErro"></div>
+  </div>
+
+  <div id="appSecao">
 
   <div class="card">
     <div class="field">
@@ -285,14 +323,41 @@
   <div id="listaSecao">
     <h2 class="lista-titulo">Pacientes salvas</h2>
     <div class="lista-sub" id="listaContagem"></div>
-    <div class="storage-aviso" id="storageAviso">Não foi possível acessar o armazenamento: a lista ficará disponível apenas nesta sessão.</div>
+    <div class="storage-aviso" id="storageAviso">Sem conexão no momento: as alterações ficam guardadas neste aparelho e serão sincronizadas automaticamente quando a internet voltar.</div>
     <div id="listaPacientes"></div>
   </div>
 
-  <footer>Cálculo: DPP = data da aferição + (280 − IG em dias). Ferramenta de apoio; não substitui o julgamento clínico.</footer>
+  </div><!-- /appSecao -->
+
+  <footer>
+    Cálculo: DPP = data da aferição + (280 − IG em dias). Ferramenta de apoio; não substitui o julgamento clínico.
+    <div class="sync-status" id="syncStatus"></div>
+  </footer>
 </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+  // chaves públicas de identificação do projeto (a proteção vem das regras do banco + login)
+  const firebaseApp = initializeApp({
+    apiKey: "AIzaSyByUwqWgkE2d1FfAJAKzj4SCiw3-FB3Aec",
+    authDomain: "calculadora-dpp.firebaseapp.com",
+    projectId: "calculadora-dpp",
+    storageBucket: "calculadora-dpp.firebasestorage.app",
+    messagingSenderId: "43715550008",
+    appId: "1:43715550008:web:555608a27af3c58d507fcd"
+  });
+  const auth = getAuth(firebaseApp);
+  let db;
+  try{
+    // cache local persistente: o app abre e grava mesmo sem internet
+    db = initializeFirestore(firebaseApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  }catch(e){
+    db = initializeFirestore(firebaseApp, {});
+  }
+
   var sem = 12, dia = 0;
   var MS_DIA = 86400000;
 
@@ -403,36 +468,111 @@
     e.classList.add('show');
   }
 
-  /* ---------- lista de pacientes salvas (localStorage: sobrevive ao fechar o app) ---------- */
-  var CHAVE = 'pacientes-dpp';
+  /* ---------- login e sincronização (Firebase) ---------- */
+  var CHAVE = 'pacientes-dpp';  // chave antiga do localStorage, usada só para migrar dados já salvos
   var pacientes = [];           // lista em memória
   var calcAtual = null;         // último cálculo realizado
-  var storageOk = true;
+  var docRef = null;            // documento do usuário no banco
+  var pararEscuta = null;
 
-  function avisoStorage(){
-    storageOk = false;
-    document.getElementById('storageAviso').classList.add('show');
+  function loginErro(msg){
+    var e = document.getElementById('loginErro');
+    if(msg){ e.textContent = msg; e.classList.add('show'); }
+    else { e.classList.remove('show'); }
   }
 
-  function carregarPacientes(){
+  function traduzErro(err){
+    var c = (err && err.code) || '';
+    if(c.indexOf('invalid-email') >= 0) return 'E-mail inválido.';
+    if(c.indexOf('user-not-found') >= 0 || c.indexOf('wrong-password') >= 0 || c.indexOf('invalid-credential') >= 0) return 'E-mail ou senha incorretos.';
+    if(c.indexOf('email-already-in-use') >= 0) return 'Este e-mail já tem conta. Use o botão Entrar.';
+    if(c.indexOf('weak-password') >= 0) return 'A senha precisa ter pelo menos 6 caracteres.';
+    if(c.indexOf('too-many-requests') >= 0) return 'Muitas tentativas seguidas. Aguarde alguns minutos.';
+    if(c.indexOf('network') >= 0) return 'Sem conexão. Verifique a internet e tente de novo.';
+    return 'Não foi possível entrar. (' + c + ')';
+  }
+
+  function dadosLogin(){
+    return {
+      email: document.getElementById('loginEmail').value.trim(),
+      senha: document.getElementById('loginSenha').value
+    };
+  }
+
+  function entrar(){
+    loginErro('');
+    var d = dadosLogin();
+    if(!d.email || !d.senha) return loginErro('Preencha e-mail e senha.');
+    signInWithEmailAndPassword(auth, d.email, d.senha).catch(function(err){ loginErro(traduzErro(err)); });
+  }
+
+  function criarConta(){
+    loginErro('');
+    var d = dadosLogin();
+    if(!d.email || !d.senha) return loginErro('Preencha e-mail e senha para criar a conta.');
+    createUserWithEmailAndPassword(auth, d.email, d.senha).catch(function(err){ loginErro(traduzErro(err)); });
+  }
+
+  function sair(){
+    if(confirm('Sair da conta neste aparelho? A lista continua guardada na nuvem.')) signOut(auth);
+  }
+
+  onAuthStateChanged(auth, function(user){
+    document.getElementById('carregando').style.display = 'none';
+    if(user){
+      document.getElementById('loginSecao').classList.remove('show');
+      document.getElementById('appSecao').classList.add('show');
+      var st = document.getElementById('syncStatus');
+      st.textContent = '';
+      st.append('Conectado como ' + user.email + ' · ');
+      var b = document.createElement('button');
+      b.className = 'sair'; b.textContent = 'Sair'; b.onclick = sair;
+      st.appendChild(b);
+      iniciarSincronia(user);
+    } else {
+      if(pararEscuta){ pararEscuta(); pararEscuta = null; }
+      docRef = null;
+      pacientes = [];
+      renderLista();
+      document.getElementById('appSecao').classList.remove('show');
+      document.getElementById('loginSecao').classList.add('show');
+      document.getElementById('syncStatus').textContent = '';
+    }
+  });
+
+  function iniciarSincronia(user){
+    docRef = doc(db, 'usuarios', user.uid);
+    if(pararEscuta) pararEscuta();
+    var primeira = true;
+    pararEscuta = onSnapshot(docRef, function(snap){
+      pacientes = (snap.exists() && snap.data().pacientes) || [];
+      if(primeira){ primeira = false; migrarListaLocal(); }
+      renderLista();
+      document.getElementById('storageAviso').classList.remove('show');
+    }, function(){
+      document.getElementById('storageAviso').classList.add('show');
+    });
+  }
+
+  // aproveita pacientes salvas na versão anterior (localStorage) e envia para a nuvem uma única vez
+  function migrarListaLocal(){
     try{
       var r = localStorage.getItem(CHAVE);
-      pacientes = r ? JSON.parse(r) : [];
-    }catch(e){
-      // localStorage indisponível (ex.: navegação privada) ou dado corrompido
-      avisoStorage();
-      pacientes = [];
-    }
-    renderLista();
+      if(!r) return;
+      var antigas = JSON.parse(r);
+      if(antigas && antigas.length){
+        pacientes = antigas.concat(pacientes);
+        persistir();
+      }
+      localStorage.removeItem(CHAVE);
+    }catch(e){}
   }
 
   function persistir(){
-    if(!storageOk) return;
-    try{
-      localStorage.setItem(CHAVE, JSON.stringify(pacientes));
-    }catch(e){
-      avisoStorage();
-    }
+    if(!docRef) return;
+    setDoc(docRef, { pacientes: pacientes }, { merge: true }).catch(function(){
+      document.getElementById('storageAviso').classList.add('show');
+    });
   }
 
   function salvarPaciente(){
@@ -499,8 +639,6 @@
     persistir();
   }
 
-  carregarPacientes();
-
   function limpar(){
     document.getElementById('nome').value = '';
     sem = 12; dia = 0;
@@ -512,6 +650,20 @@
     document.getElementById('resultado').classList.remove('show');
     document.getElementById('erro').classList.remove('show');
   }
+
+  // o script é um módulo: expõe as funções usadas nos onclick do HTML
+  window.ajusta = ajusta;
+  window.calcular = calcular;
+  window.limpar = limpar;
+  window.salvarPaciente = salvarPaciente;
+  window.entrar = entrar;
+  window.criarConta = criarConta;
+  window.sair = sair;
+
+  // enter no campo de senha entra direto
+  document.getElementById('loginSenha').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') entrar();
+  });
 
   // service worker: permite abrir o app offline depois do primeiro acesso
   if('serviceWorker' in navigator && location.protocol !== 'file:'){

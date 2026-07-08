@@ -1,4 +1,4 @@
-var CACHE = 'dpp-v1';
+var CACHE = 'dpp-v2';
 var ARQUIVOS = ['.', 'index.html', 'manifest.json', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', function(e){
