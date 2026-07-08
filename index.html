@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DPP">
+<meta name="theme-color" content="#2E7D6E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Calculadora de DPP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Albert+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F7;
+    --card:#FFFFFF;
+    --ink:#16303E;
+    --ink-soft:#5A7180;
+    --line:#DEE5EA;
+    --jade:#2E7D6E;
+    --jade-soft:#E3F0ED;
+    --gold:#B07A3F;
+    --gold-soft:#F6EDE0;
+    --alert:#A34040;
+    --radius:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Albert Sans',sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding:28px 20px 60px;
+    padding-top:calc(28px + env(safe-area-inset-top));
+    display:flex;
+    justify-content:center;
+  }
+  .app{width:100%;max-width:640px}
+
+  header{margin-bottom:26px}
+  .eyebrow{
+    font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--jade);margin-bottom:6px;
+  }
+  h1{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:700;font-size:clamp(28px,5vw,38px);line-height:1.1;
+  }
+  header p{color:var(--ink-soft);margin-top:8px;font-size:15px;max-width:46ch}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:26px 24px;box-shadow:0 1px 3px rgba(22,48,62,.05);
+  }
+
+  .field{margin-bottom:22px}
+  label{
+    display:block;font-size:14px;font-weight:600;color:var(--ink);
+    margin-bottom:8px;letter-spacing:.01em;
+  }
+  .hint{font-weight:400;color:var(--ink-soft)}
+  input[type=text],input[type=date]{
+    width:100%;font-family:inherit;font-size:19px;color:var(--ink);
+    padding:15px 16px;border:1.5px solid var(--line);border-radius:14px;
+    background:#FBFCFD;appearance:none;-webkit-appearance:none;min-height:56px;
+  }
+  input:focus{outline:none;border-color:var(--jade);background:#fff;box-shadow:0 0 0 3px var(--jade-soft)}
+
+  .ig-row{display:flex;gap:14px}
+  .stepper{flex:1;border:1.5px solid var(--line);border-radius:14px;background:#FBFCFD;overflow:hidden}
+  .stepper .top{
+    display:flex;align-items:stretch;
+  }
+  .stepper button{
+    width:56px;min-height:64px;border:none;background:transparent;color:var(--jade);
+    font-size:28px;font-weight:600;cursor:pointer;font-family:inherit;
+  }
+  .stepper button:active{background:var(--jade-soft)}
+  .stepper .val{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;
+  }
+  .stepper .num{font-family:'Bricolage Grotesque',sans-serif;font-size:32px;font-weight:700;line-height:1}
+  .stepper .unit{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-top:3px}
+
+  .actions{display:flex;gap:12px;margin-top:6px}
+  .btn{
+    font-family:inherit;font-size:17px;font-weight:700;border-radius:14px;cursor:pointer;
+    min-height:58px;border:none;letter-spacing:.01em;
+  }
+  .btn-primary{flex:1;background:var(--jade);color:#fff}
+  .btn-primary:active{background:#256355}
+  .btn-ghost{padding:0 22px;background:transparent;color:var(--ink-soft);border:1.5px solid var(--line)}
+  .btn-ghost:active{background:var(--bg)}
+
+  .error{
+    display:none;margin-top:16px;padding:14px 16px;border-radius:12px;
+    background:#FBEDED;color:var(--alert);font-size:15px;font-weight:500;
+  }
+  .error.show{display:block}
+
+  /* ---------- resultado ---------- */
+  #resultado{display:none;margin-top:24px}
+  #resultado.show{display:block;animation:rise .35s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .res-card{
+    background:var(--ink);color:#fff;border-radius:var(--radius);
+    padding:28px 26px;overflow:hidden;position:relative;
+  }
+  .res-name{font-size:15px;font-weight:600;color:#9FB6C2;margin-bottom:18px}
+  .res-label{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7FB8AC;margin-bottom:6px}
+  .res-date{
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:700;
+    font-size:clamp(26px,5.4vw,36px);line-height:1.15;
+  }
+  .res-date .dia{color:#E8C48F}
+  .res-sub{margin-top:6px;font-size:15px;color:#9FB6C2}
+
+  .res-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px;
+  }
+  .res-tile{
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;padding:14px 16px;
+  }
+  .res-tile .t-label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8FA9B6;margin-bottom:5px}
+  .res-tile .t-value{font-family:'Bricolage Grotesque',sans-serif;font-size:21px;font-weight:600}
+
+  /* linha do tempo gestacional */
+  .timeline{margin-top:26px}
+  .tl-bar{
+    position:relative;height:14px;border-radius:99px;
+    background:linear-gradient(to right,
+      rgba(255,255,255,.14) 0 32.5%,
+      rgba(255,255,255,.22) 32.5% 67.5%,
+      rgba(255,255,255,.30) 67.5% 100%);
+  }
+  .tl-fill{
+    position:absolute;left:0;top:0;bottom:0;border-radius:99px;
+    background:linear-gradient(to right,#3E9C89,#E8C48F);
+    transition:width .6s ease;
+  }
+  .tl-marker{
+    position:absolute;top:50%;transform:translate(-50%,-50%);
+    width:26px;height:26px;border-radius:50%;background:#E8C48F;
+    border:3px solid var(--ink);box-shadow:0 0 0 2px #E8C48F;
+    transition:left .6s ease;
+  }
+  .tl-labels{display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:#8FA9B6;font-weight:600}
+  .tl-tri{display:flex;margin-top:2px;font-size:11px;color:#6E8794;letter-spacing:.06em;text-transform:uppercase}
+  .tl-tri span:nth-child(1){width:32.5%}
+  .tl-tri span:nth-child(2){width:35%;text-align:center}
+  .tl-tri span:nth-child(3){width:32.5%;text-align:right}
+
+  .pos-termo{
+    margin-top:16px;padding:12px 16px;border-radius:12px;
+    background:rgba(232,150,143,.15);border:1px solid rgba(232,150,143,.35);
+    color:#F2B8B3;font-size:14px;font-weight:600;display:none;
+  }
+  .pos-termo.show{display:block}
+
+  .btn-salvar{
+    width:100%;margin-top:20px;min-height:56px;border-radius:14px;border:none;
+    font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;
+    background:#E8C48F;color:#16303E;letter-spacing:.01em;
+  }
+  .btn-salvar:active{background:#DDB477}
+  .btn-salvar:disabled{background:rgba(255,255,255,.15);color:#8FA9B6;cursor:default}
+
+  /* ---------- lista de pacientes ---------- */
+  #listaSecao{display:none;margin-top:30px}
+  #listaSecao.show{display:block}
+  .lista-titulo{
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;
+    margin-bottom:4px;
+  }
+  .lista-sub{font-size:14px;color:var(--ink-soft);margin-bottom:14px}
+  .pac-item{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:16px 18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;
+    animation:rise .3s ease;
+  }
+  .pac-info{flex:1;min-width:0}
+  .pac-nome{font-weight:700;font-size:17px;margin-bottom:3px}
+  .pac-dpp{font-size:15px;color:var(--jade);font-weight:600}
+  .pac-meta{font-size:13px;color:var(--ink-soft);margin-top:3px}
+  .pac-excluir{
+    flex-shrink:0;width:44px;height:44px;border-radius:12px;border:1.5px solid var(--line);
+    background:transparent;color:var(--alert);font-size:20px;cursor:pointer;font-family:inherit;
+  }
+  .pac-excluir:active{background:#FBEDED}
+  .lista-vazia{display:none}
+  .storage-aviso{
+    display:none;margin-bottom:14px;padding:12px 16px;border-radius:12px;
+    background:var(--gold-soft);color:var(--gold);font-size:14px;font-weight:500;
+  }
+  .storage-aviso.show{display:block}
+
+  footer{margin-top:22px;text-align:center;font-size:13px;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Obstetrícia · Regra das 40 semanas</div>
+    <h1>Calculadora de DPP</h1>
+    <p>Informe a idade gestacional aferida e a data da aferição para obter a data provável do parto.</p>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label for="nome">Nome da paciente</label>
+      <input type="text" id="nome" placeholder="Ex.: Maria da Silva" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>Idade gestacional na aferição</label>
+      <div class="ig-row">
+        <div class="stepper">
+          <div class="top">
+            <button type="button" onclick="ajusta('sem',-1)" aria-label="Diminuir semanas">−</button>
+            <div class="val"><div class="num" id="semVal">12</div><div class="unit">semanas</div></div>
+            <button type="button" onclick="ajusta('sem',1)" aria-label="Aumentar semanas">+</button>
+          </div>
+        </div>
+        <div class="stepper">
+          <div class="top">
+            <button type="button" onclick="ajusta('dia',-1)" aria-label="Diminuir dias">−</button>
+            <div class="val"><div class="num" id="diaVal">0</div><div class="unit">dias</div></div>
+            <button type="button" onclick="ajusta('dia',1)" aria-label="Aumentar dias">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="dataAf">Data da aferição <span class="hint">(dia em que a IG foi medida)</span></label>
+      <input type="date" id="dataAf">
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="calcular()">Calcular DPP</button>
+      <button class="btn btn-ghost" onclick="limpar()">Limpar</button>
+    </div>
+
+    <div class="error" id="erro"></div>
+  </div>
+
+  <div id="resultado">
+    <div class="res-card">
+      <div class="res-name" id="resNome"></div>
+
+      <div class="res-label">Data provável do parto — 40 semanas</div>
+      <div class="res-date" id="resData"></div>
+      <div class="res-sub" id="resSub"></div>
+
+      <div class="res-grid">
+        <div class="res-tile">
+          <div class="t-label">IG hoje</div>
+          <div class="t-value" id="resIgHoje"></div>
+        </div>
+        <div class="res-tile">
+          <div class="t-label">Faltam para 40 sem</div>
+          <div class="t-value" id="resFaltam"></div>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="tl-bar">
+          <div class="tl-fill" id="tlFill"></div>
+          <div class="tl-marker" id="tlMarker"></div>
+        </div>
+        <div class="tl-labels"><span>0 sem</span><span>40 sem</span></div>
+        <div class="tl-tri"><span>1º trim</span><span>2º trim</span><span>3º trim</span></div>
+      </div>
+
+      <div class="pos-termo" id="posTermo"></div>
+
+      <button class="btn-salvar" id="btnSalvar" onclick="salvarPaciente()">Salvar paciente</button>
+    </div>
+  </div>
+
+  <div id="listaSecao">
+    <h2 class="lista-titulo">Pacientes salvas</h2>
+    <div class="lista-sub" id="listaContagem"></div>
+    <div class="storage-aviso" id="storageAviso">Não foi possível acessar o armazenamento: a lista ficará disponível apenas nesta sessão.</div>
+    <div id="listaPacientes"></div>
+  </div>
+
+  <footer>Cálculo: DPP = data da aferição + (280 − IG em dias). Ferramenta de apoio; não substitui o julgamento clínico.</footer>
+</div>
+
+<script>
+  var sem = 12, dia = 0;
+  var MS_DIA = 86400000;
+
+  // data da aferição inicia em hoje
+  (function(){
+    var h = new Date();
+    document.getElementById('dataAf').value =
+      h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
+  })();
+
+  function ajusta(tipo, delta){
+    if(tipo === 'sem'){
+      sem = Math.min(43, Math.max(0, sem + delta));
+      document.getElementById('semVal').textContent = sem;
+    } else {
+      dia = dia + delta;
+      if(dia > 6){ dia = 0; if(sem < 43){ sem++; document.getElementById('semVal').textContent = sem; } }
+      if(dia < 0){ dia = 6; if(sem > 0){ sem--; document.getElementById('semVal').textContent = sem; } else { dia = 0; } }
+      document.getElementById('diaVal').textContent = dia;
+    }
+  }
+
+  function dataLocal(str){
+    var p = str.split('-');
+    return new Date(+p[0], +p[1]-1, +p[2]);
+  }
+
+  function fmtLonga(d){
+    return d.toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  }
+
+  function fmtSemDia(dias){
+    var s = Math.floor(dias/7), r = dias%7;
+    var out = s + (s===1?' semana':' semanas');
+    if(r > 0) out += ' e ' + r + (r===1?' dia':' dias');
+    if(s === 0 && r === 0) out = '0 dias';
+    return out;
+  }
+
+  function calcular(){
+    var erro = document.getElementById('erro');
+    erro.classList.remove('show');
+
+    var nome = document.getElementById('nome').value.trim();
+    var dataStr = document.getElementById('dataAf').value;
+
+    if(!nome){ return mostraErro('Informe o nome da paciente.'); }
+    if(!dataStr){ return mostraErro('Informe a data em que a idade gestacional foi aferida.'); }
+
+    var dataAf = dataLocal(dataStr);
+    var hoje = new Date(); hoje.setHours(0,0,0,0);
+
+    if(dataAf > hoje){ return mostraErro('A data da aferição não pode estar no futuro.'); }
+
+    var igDias = sem*7 + dia;                    // IG em dias na aferição
+    var dpp = new Date(dataAf.getTime() + (280 - igDias)*MS_DIA);   // 40 semanas
+    var igHojeDias = igDias + Math.round((hoje - dataAf)/MS_DIA);   // IG corrigida para hoje
+    var faltamDias = 280 - igHojeDias;
+
+    document.getElementById('resNome').textContent = nome;
+
+    var partes = fmtLonga(dpp).split(', ');
+    document.getElementById('resData').innerHTML =
+      '<span class="dia">' + partes[0].charAt(0).toUpperCase() + partes[0].slice(1) + '</span><br>' + (partes[1] || '');
+
+    document.getElementById('resSub').textContent =
+      'Contadas a partir da aferição de ' + dataAf.toLocaleDateString('pt-BR') +
+      ' (IG ' + sem + 's' + dia + 'd), faltavam ' + fmtSemDia(280 - igDias) + ' para 40 semanas.';
+
+    var igHojeS = Math.floor(igHojeDias/7), igHojeD = igHojeDias%7;
+    document.getElementById('resIgHoje').textContent = igHojeS + 's ' + igHojeD + 'd';
+
+    var posTermo = document.getElementById('posTermo');
+    posTermo.classList.remove('show');
+
+    if(faltamDias >= 0){
+      document.getElementById('resFaltam').textContent = fmtSemDia(faltamDias);
+    } else {
+      document.getElementById('resFaltam').textContent = '—';
+      posTermo.textContent = 'Atenção: a paciente já ultrapassou 40 semanas há ' + fmtSemDia(-faltamDias) + '.';
+      posTermo.classList.add('show');
+    }
+
+    var pct = Math.min(100, Math.max(0, igHojeDias/280*100));
+    document.getElementById('tlFill').style.width = pct + '%';
+    document.getElementById('tlMarker').style.left = pct + '%';
+
+    // registra o cálculo atual para permitir salvar e reativa o botão
+    calcAtual = {
+      nome: nome,
+      sem: sem,
+      dia: dia,
+      aferidaFmt: dataAf.toLocaleDateString('pt-BR'),
+      dppFmt: fmtLonga(dpp).charAt(0).toUpperCase() + fmtLonga(dpp).slice(1),
+      salvoEm: Date.now()
+    };
+    var btnSalvar = document.getElementById('btnSalvar');
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = 'Salvar paciente';
+
+    document.getElementById('resultado').classList.add('show');
+    document.getElementById('resultado').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  function mostraErro(msg){
+    var e = document.getElementById('erro');
+    e.textContent = msg;
+    e.classList.add('show');
+  }
+
+  /* ---------- lista de pacientes salvas (localStorage: sobrevive ao fechar o app) ---------- */
+  var CHAVE = 'pacientes-dpp';
+  var pacientes = [];           // lista em memória
+  var calcAtual = null;         // último cálculo realizado
+  var storageOk = true;
+
+  function avisoStorage(){
+    storageOk = false;
+    document.getElementById('storageAviso').classList.add('show');
+  }
+
+  function carregarPacientes(){
+    try{
+      var r = localStorage.getItem(CHAVE);
+      pacientes = r ? JSON.parse(r) : [];
+    }catch(e){
+      // localStorage indisponível (ex.: navegação privada) ou dado corrompido
+      avisoStorage();
+      pacientes = [];
+    }
+    renderLista();
+  }
+
+  function persistir(){
+    if(!storageOk) return;
+    try{
+      localStorage.setItem(CHAVE, JSON.stringify(pacientes));
+    }catch(e){
+      avisoStorage();
+    }
+  }
+
+  function salvarPaciente(){
+    if(!calcAtual) return;
+    pacientes.unshift(calcAtual);        // mais recente no topo
+    calcAtual = null;                    // impede salvar o mesmo cálculo duas vezes
+    var btn = document.getElementById('btnSalvar');
+    btn.textContent = 'Paciente salva ✓';
+    btn.disabled = true;
+    renderLista();
+    persistir();
+  }
+
+  function renderLista(){
+    var secao = document.getElementById('listaSecao');
+    var lista = document.getElementById('listaPacientes');
+    if(pacientes.length === 0){
+      secao.classList.remove('show');
+      lista.innerHTML = '';
+      return;
+    }
+    secao.classList.add('show');
+    document.getElementById('listaContagem').textContent =
+      pacientes.length + (pacientes.length === 1 ? ' paciente salva' : ' pacientes salvas');
+
+    lista.innerHTML = '';
+    pacientes.forEach(function(p, i){
+      var item = document.createElement('div');
+      item.className = 'pac-item';
+
+      var info = document.createElement('div');
+      info.className = 'pac-info';
+
+      var nome = document.createElement('div');
+      nome.className = 'pac-nome';
+      nome.textContent = p.nome;
+
+      var dpp = document.createElement('div');
+      dpp.className = 'pac-dpp';
+      dpp.textContent = 'DPP: ' + p.dppFmt;
+
+      var meta = document.createElement('div');
+      meta.className = 'pac-meta';
+      meta.textContent = 'IG ' + p.sem + 's' + p.dia + 'd em ' + p.aferidaFmt;
+
+      info.appendChild(nome); info.appendChild(dpp); info.appendChild(meta);
+
+      var btn = document.createElement('button');
+      btn.className = 'pac-excluir';
+      btn.setAttribute('aria-label', 'Excluir ' + p.nome);
+      btn.textContent = '×';
+      btn.onclick = function(){ excluirPaciente(i); };
+
+      item.appendChild(info); item.appendChild(btn);
+      lista.appendChild(item);
+    });
+  }
+
+  function excluirPaciente(i){
+    var p = pacientes[i];
+    if(!confirm('Excluir ' + p.nome + ' da lista?')) return;
+    pacientes.splice(i, 1);
+    renderLista();
+    persistir();
+  }
+
+  carregarPacientes();
+
+  function limpar(){
+    document.getElementById('nome').value = '';
+    sem = 12; dia = 0;
+    document.getElementById('semVal').textContent = 12;
+    document.getElementById('diaVal').textContent = 0;
+    var h = new Date();
+    document.getElementById('dataAf').value =
+      h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
+    document.getElementById('resultado').classList.remove('show');
+    document.getElementById('erro').classList.remove('show');
+  }
+
+  // service worker: permite abrir o app offline depois do primeiro acesso
+  if('serviceWorker' in navigator && location.protocol !== 'file:'){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+</script>
+</body>
+</html>
