@@ -452,6 +452,7 @@
       dia: dia,
       aferidaFmt: dataAf.toLocaleDateString('pt-BR'),
       dppFmt: fmtLonga(dpp).charAt(0).toUpperCase() + fmtLonga(dpp).slice(1),
+      dppTs: dpp.getTime(),
       salvoEm: Date.now()
     };
     var btnSalvar = document.getElementById('btnSalvar');
@@ -586,7 +587,19 @@
     persistir();
   }
 
+  // DPP em milissegundos; registros antigos não têm dppTs, então recalcula a partir da IG e da data da aferição
+  function dppTimestamp(p){
+    if(p.dppTs) return p.dppTs;
+    try{
+      var pt = p.aferidaFmt.split('/');
+      var af = new Date(+pt[2], +pt[1]-1, +pt[0]);
+      return af.getTime() + (280 - (p.sem*7 + p.dia))*MS_DIA;
+    }catch(e){ return 0; }
+  }
+
   function renderLista(){
+    // DPP mais próxima primeiro; empate decidido pela ordem de salvamento
+    pacientes.sort(function(a,b){ return dppTimestamp(a) - dppTimestamp(b) || (a.salvoEm||0) - (b.salvoEm||0); });
     var secao = document.getElementById('listaSecao');
     var lista = document.getElementById('listaPacientes');
     if(pacientes.length === 0){
